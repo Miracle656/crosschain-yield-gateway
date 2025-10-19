@@ -72,10 +72,11 @@ export const StrategyCard = ({ strategy, onDeposit }: StrategyCardProps) => {
         <Button
           onClick={() => onDeposit(Number(strategy.strategyId))}
           disabled={!strategy.isActive}
-          className="w-full bg-gradient-primary hover:opacity-90"
+          className="w-full bg-gradient-primary hover:opacity-90 transition-all hover:scale-105 glow-primary"
+          size="lg"
         >
-          <TrendingUp className="mr-2 h-4 w-4" />
-          Deposit
+          <TrendingUp className="mr-2 h-5 w-5" />
+          <span className="font-semibold">Deposit Now</span>
         </Button>
       </div>
     </Card>

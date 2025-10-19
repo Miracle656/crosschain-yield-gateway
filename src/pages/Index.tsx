@@ -11,7 +11,7 @@ import { ethers } from 'ethers';
 import { toast } from 'sonner';
 
 const Index = () => {
-  const { contract, account, isConnected } = useWeb3();
+  const { contract, account, isConnected, pushChainClient } = useWeb3();
   const [strategies, setStrategies] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [totalTVL, setTotalTVL] = useState('0');
@@ -165,13 +165,19 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="strategies" className="space-y-4">
-            {isLoading ? (
+            {!isConnected ? (
+              <div className="text-center py-12 glass-card rounded-lg p-8">
+                <Wallet className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">Connect Your Wallet</h3>
+                <p className="text-muted-foreground mb-6">Connect your wallet to view and deposit into yield strategies</p>
+              </div>
+            ) : isLoading ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">Loading strategies...</p>
               </div>
             ) : strategies.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No strategies available</p>
+              <div className="text-center py-12 glass-card rounded-lg p-8">
+                <p className="text-muted-foreground">No strategies available at the moment</p>
               </div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
