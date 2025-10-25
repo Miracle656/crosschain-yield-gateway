@@ -79,3 +79,23 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 13, 12, 19;
+  --background-end-rgb: 23, 21, 34;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
+}
+
+.glow-primary {
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.3);
+}

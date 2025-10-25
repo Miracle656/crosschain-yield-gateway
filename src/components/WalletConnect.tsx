@@ -1,36 +1,54 @@
-import { Button } from '@/components/ui/button';
-import { Wallet, LogOut } from 'lucide-react';
-import { useWeb3 } from '@/hooks/useWeb3';
+import { PushUniversalAccountButton, usePushWalletContext, usePushChainClient, PushUI } from '@pushchain/ui-kit';
+import { useEffect, useState } from 'react';
+import { ethers } from 'ethers';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/lib/contract';
 
 export const WalletConnect = () => {
-  const { account, isConnecting, connectWallet, disconnectWallet, isConnected } = useWeb3();
+  const { connectionStatus } = usePushWalletContext();
+  const { pushChainClient } = usePushChainClient();
+  const [isLoading, setIsLoading] = useState(false);
+  const [txHash, setTxHash] = useState<string>("");
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const handleTransaction = async (functionName: string, args: any[] = []) => {
+    if (pushChainClient) {
+      try {
+        setIsLoading(true);
+        const tx = await pushChainClient.universal.sendTransaction({
+          to: CONTRACT_ADDRESS,
+          data: ethers.utils.defaultAbiCoder.encode(
+            CONTRACT_ABI.find(item => item.name === functionName)?.inputs || [],
+            args
+          ),
+          value: BigInt(0),
+        });
+
+        setTxHash(tx.hash);
+        await tx.wait();
+        setIsLoading(false);
+        return tx;
+      } catch (err) {
+        console.error("Transaction error:", err);
+        setIsLoading(false);
+        throw err;
+      }
+    }
   };
 
-  if (isConnected && account) {
-    return (
-      <Button
-        onClick={disconnectWallet}
-        variant="outline"
-        className="gap-2 border-border/50 bg-secondary/50 hover:bg-secondary"
-      >
-        <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-        {formatAddress(account)}
-        <LogOut className="h-4 w-4" />
-      </Button>
-    );
-  }
-
   return (
-    <Button
-      onClick={connectWallet}
-      disabled={isConnecting}
-      className="gap-2 bg-gradient-primary hover:opacity-90 glow-primary"
-    >
-      <Wallet className="h-4 w-4" />
-      {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-    </Button>
+    <div className="flex flex-col items-center gap-4">
+      <PushUniversalAccountButton />
+      {txHash && pushChainClient && (
+        <div className="text-sm text-pink-500">
+          <a
+            href={pushChainClient.explorer.getTransactionUrl(txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            View Transaction
+          </a>
+        </div>
+      )}
+    </div>
   );
 };
