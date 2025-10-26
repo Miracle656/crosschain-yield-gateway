@@ -1,6 +1,6 @@
 // src/config/contract.ts
 
-export const CONTRACT_ADDRESS = '0x6bD978ebc0e0626675EFe3Dd180B5ecc49852C7D';
+export const CONTRACT_ADDRESS = '0x5e873BF3f54694A7Dd922Eb185Bf3D7212E989C2';
 
 export const CONTRACT_ABI = [
 	{

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { SwapModal } from "@/components/SwapModal";
 import { BridgeModal } from "@/components/BridgeModal";
 import { usePushChain } from "@pushchain/ui-kit"; // ✅ Add this import
+import pyeildLogo from '../../public/pushyeildlogo.png';
 
 
 const Index = () => {
@@ -87,6 +88,8 @@ const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
       setIsLoading(false);
     }
   };
+
+  
 
   const fetchPositions = async () => {
     if (!account || !universalAccount) return;
@@ -318,10 +321,12 @@ const [isBridgeModalOpen, setIsBridgeModalOpen] = useState(false);
       {/* Header */}
       <header className="border-b border-border/50 bg-background/50 backdrop-blur-xl">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
+
           <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-lg bg-gradient-primary" />
+            {/* <div className="h-10 w-10 rounded-lg bg-gradient-primary" /> */}
+            <img className="h-10" src={pyeildLogo} alt="push yeild logo" />
             <h1 className="text-2xl font-bold gradient-text">
-              DeFi Aggregator
+              Push Yeild
             </h1>
           </div>
           <div className="flex items-center gap-2">

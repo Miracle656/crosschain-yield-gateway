@@ -24,7 +24,6 @@ import { Loader2, ArrowDownUp } from "lucide-react";
 import { usePushChain } from "@pushchain/ui-kit";
 import { getSwapRoute } from "@/lib/swapRoutes";
 
-
 // Token definitions
 const TOKENS = {
   PC: {
@@ -145,9 +144,9 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
       if (!account || !universalAccount) return;
 
       try {
-        const chainInfo = universalAccount.chain || '';
-        const [namespace, chainId] = chainInfo.split(':');
-        const isPushChainDirect = chainId === '111557560';
+        const chainInfo = universalAccount.chain || "";
+        const [namespace, chainId] = chainInfo.split(":");
+        const isPushChainDirect = chainId === "111557560";
 
         if (isPushChainDirect) {
           // On PushChain, use the account directly
@@ -156,20 +155,21 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
         } else {
           // For external chains, get the UEA
           console.log("🔍 Converting to UEA for", chainInfo);
-          
+
           const universalAccountObj = {
             chain: universalAccount.chain,
-            address: account
+            address: account,
           };
 
-          const executorInfo = await PushChain.utils.account.convertOriginToExecutor(
-            universalAccountObj,
-            { onlyCompute: false }
-          );
+          const executorInfo =
+            await PushChain.utils.account.convertOriginToExecutor(
+              universalAccountObj,
+              { onlyCompute: false }
+            );
 
           console.log("✅ UEA Address:", executorInfo.address);
           console.log("Is deployed:", executorInfo.exists);
-          
+
           setUeaAddress(executorInfo.address);
 
           // Cache it
@@ -185,7 +185,6 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
     getUEAAddress();
   }, [account, universalAccount, PushChain]);
 
-
   // Fetch balances
   useEffect(() => {
     if (account && isOpen) {
@@ -200,7 +199,12 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
     try {
       const newBalances: Record<string, string> = {};
 
-      // Native balance
+      // ✅ ALWAYS use Push Chain RPC for balances (tokens are on Push Chain)
+      const provider = new ethers.JsonRpcProvider(
+        "https://evm.rpc-testnet-donut-node1.push.org/"
+      );
+
+      // Native PC balance
       const nativeBalance = await provider.getBalance(ueaAddress);
       newBalances.PC = ethers.formatEther(nativeBalance);
 
@@ -209,9 +213,17 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
         if (token.address === "NATIVE") continue;
 
         try {
-          const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
+          const contract = new ethers.Contract(
+            token.address,
+            ERC20_ABI,
+            provider
+          );
           const balance = await contract.balanceOf(ueaAddress);
           newBalances[key] = ethers.formatUnits(balance, token.decimals);
+          console.log(
+            `${key} balance:`,
+            ethers.formatUnits(balance, token.decimals)
+          );
         } catch (error) {
           console.error(`Error fetching ${key} balance:`, error);
           newBalances[key] = "0";
@@ -223,199 +235,204 @@ export const SwapModal = ({ isOpen, onClose }: SwapModalProps) => {
       console.error("Error fetching balances:", error);
     }
   };
-
   const handleSwap = async () => {
-  if (!account || !amount || !pushChainClient || !ueaAddress) {
-    toast.error("Please fill in all fields");
-    return;
-  }
+    if (!account || !amount || !pushChainClient || !ueaAddress) {
+      toast.error("Please fill in all fields");
+      return;
+    }
 
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
 
-    const fromTokenData = TOKENS[fromToken as keyof typeof TOKENS];
-    const toTokenData = TOKENS[toToken as keyof typeof TOKENS];
-    const amountIn = ethers.parseUnits(amount, fromTokenData.decimals);
+      const fromTokenData = TOKENS[fromToken as keyof typeof TOKENS];
+      const toTokenData = TOKENS[toToken as keyof typeof TOKENS];
+      const amountIn = ethers.parseUnits(amount, fromTokenData.decimals);
 
-    const route = getSwapRoute(fromToken, toToken);
-    console.log("Swap route:", route);
+      const route = getSwapRoute(fromToken, toToken);
+      console.log("Swap route:", route);
 
-    // Execute based on route method
-    if (route.method === "wrap") {
-      await wrapPC(amountIn);
-      toast.success("Wrapped PC to WPC!");
-    } else if (route.method === "unwrap") {
-      await unwrapWPC(amountIn);
-      toast.success("Unwrapped WPC to PC!");
-    } else if (route.method === "directSwap") {
-      // Direct WPC ↔ Token swap
-      toast.info("Swapping directly...");
-      await directSwap(
-        fromTokenData.address,
-        toTokenData.address,
-        amountIn,
-        BigInt(0),
-        500 // Always use fee tier 500
-      );
-      toast.success("Swap successful!");
-    } else if (route.method === "multiHop") {
-      // Multi-hop swap
-      toast.info(`Swapping via ${route.hops.length} hops...`);
-      
-      if (fromToken === "PC") {
-        // PC → WPC → Token
-        await multiHopFromPC(amountIn, toTokenData.address);
-      } else if (toToken === "PC") {
-        // Token → WPC → PC
-        await multiHopSwapToPC(fromTokenData.address, amountIn);
-      } else {
-        // Token → WPC → Token
-        await multiHopSwapTokenToToken(fromTokenData.address, toTokenData.address, amountIn);
+      // Execute based on route method
+      if (route.method === "wrap") {
+        await wrapPC(amountIn);
+        toast.success("Wrapped PC to WPC!");
+      } else if (route.method === "unwrap") {
+        await unwrapWPC(amountIn);
+        toast.success("Unwrapped WPC to PC!");
+      } else if (route.method === "directSwap") {
+        // Direct WPC ↔ Token swap
+        toast.info("Swapping directly...");
+        await directSwap(
+          fromTokenData.address,
+          toTokenData.address,
+          amountIn,
+          BigInt(0),
+          500 // Always use fee tier 500
+        );
+        toast.success("Swap successful!");
+      } else if (route.method === "multiHop") {
+        // Multi-hop swap
+        toast.info(`Swapping via ${route.hops.length} hops...`);
+
+        if (fromToken === "PC") {
+          // PC → WPC → Token
+          await multiHopFromPC(amountIn, toTokenData.address);
+        } else if (toToken === "PC") {
+          // Token → WPC → PC
+          await multiHopSwapToPC(fromTokenData.address, amountIn);
+        } else {
+          // Token → WPC → Token
+          await multiHopSwapTokenToToken(
+            fromTokenData.address,
+            toTokenData.address,
+            amountIn
+          );
+        }
+
+        toast.success("Multi-hop swap successful!");
       }
-      
-      toast.success("Multi-hop swap successful!");
+
+      setAmount("");
+      fetchBalances();
+      onClose();
+    } catch (error: any) {
+      console.error("Swap error:", error);
+
+      if (error.message?.includes("execution reverted")) {
+        toast.error(
+          "Swap failed. Pool might have insufficient liquidity or wrong fee tier."
+        );
+      } else {
+        toast.error(error.message || "Swap failed");
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    setAmount("");
-    fetchBalances();
-    onClose();
-  } catch (error: any) {
-    console.error("Swap error:", error);
-    
-    if (error.message?.includes("execution reverted")) {
-      toast.error("Swap failed. Pool might have insufficient liquidity or wrong fee tier.");
-    } else {
-      toast.error(error.message || "Swap failed");
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  // ✅ Add these helper functions
 
-// ✅ Add these helper functions
+  const wrapPC = async (amount: bigint) => {
+    const wpcInterface = new ethers.Interface(WPC_ABI);
+    const data = wpcInterface.encodeFunctionData("deposit");
 
-const wrapPC = async (amount: bigint) => {
-  const wpcInterface = new ethers.Interface(WPC_ABI);
-  const data = wpcInterface.encodeFunctionData("deposit");
+    const tx = await pushChainClient.universal.sendTransaction({
+      to: WPC_ADDRESS,
+      data,
+      value: amount,
+    });
 
-  const tx = await pushChainClient.universal.sendTransaction({
-    to: WPC_ADDRESS,
-    data,
-    value: amount,
-  });
+    toast.info("Wrapping PC to WPC...");
+    await tx.wait();
+  };
 
-  toast.info("Wrapping PC to WPC...");
-  await tx.wait();
-};
+  const unwrapWPC = async (amount: bigint) => {
+    const wpcInterface = new ethers.Interface(WPC_ABI);
+    const data = wpcInterface.encodeFunctionData("withdraw", [amount]);
 
-const unwrapWPC = async (amount: bigint) => {
-  const wpcInterface = new ethers.Interface(WPC_ABI);
-  const data = wpcInterface.encodeFunctionData("withdraw", [amount]);
+    const tx = await pushChainClient.universal.sendTransaction({
+      to: WPC_ADDRESS,
+      data,
+    });
 
-  const tx = await pushChainClient.universal.sendTransaction({
-    to: WPC_ADDRESS,
-    data,
-  });
+    toast.info("Unwrapping WPC to PC...");
+    await tx.wait();
+  };
 
-  toast.info("Unwrapping WPC to PC...");
-  await tx.wait();
-};
+  // ✅ Multi-hop from PC
+  const multiHopFromPC = async (amountIn: bigint, toToken: string) => {
+    // Step 1: Wrap PC to WPC
+    toast.info("Step 1/3: Wrapping PC to WPC...");
+    await wrapPC(amountIn);
 
-// ✅ Multi-hop from PC
-const multiHopFromPC = async (amountIn: bigint, toToken: string) => {
-  // Step 1: Wrap PC to WPC
-  toast.info("Step 1/3: Wrapping PC to WPC...");
-  await wrapPC(amountIn);
+    // Step 2: Approve WPC for router
+    toast.info("Step 2/3: Approving WPC...");
+    const wpcInterface = new ethers.Interface(WPC_ABI);
+    const approveData = wpcInterface.encodeFunctionData("approve", [
+      SWAP_ROUTER,
+      amountIn,
+    ]);
 
-  // Step 2: Approve WPC for router
-  toast.info("Step 2/3: Approving WPC...");
-  const wpcInterface = new ethers.Interface(WPC_ABI);
-  const approveData = wpcInterface.encodeFunctionData("approve", [
-    SWAP_ROUTER,
-    amountIn,
-  ]);
+    const approveTx = await pushChainClient.universal.sendTransaction({
+      to: WPC_ADDRESS,
+      data: approveData,
+    });
+    await approveTx.wait();
 
-  const approveTx = await pushChainClient.universal.sendTransaction({
-    to: WPC_ADDRESS,
-    data: approveData,
-  });
-  await approveTx.wait();
+    // Step 3: Swap WPC to target token
+    toast.info("Step 3/3: Swapping WPC to target token...");
+    await directSwap(WPC_ADDRESS, toToken, amountIn, BigInt(0), 500);
+  };
 
-  // Step 3: Swap WPC to target token
-  toast.info("Step 3/3: Swapping WPC to target token...");
-  await directSwap(WPC_ADDRESS, toToken, amountIn, BigInt(0), 500);
-};
+  const multiHopSwapToPC = async (fromToken: string, amountIn: bigint) => {
+    // Step 1: Approve source token
+    const erc20Interface = new ethers.Interface(ERC20_ABI);
+    const approveData = erc20Interface.encodeFunctionData("approve", [
+      SWAP_ROUTER,
+      amountIn,
+    ]);
 
-const multiHopSwapToPC = async (fromToken: string, amountIn: bigint) => {
-  // Step 1: Approve source token
-  const erc20Interface = new ethers.Interface(ERC20_ABI);
-  const approveData = erc20Interface.encodeFunctionData("approve", [
-    SWAP_ROUTER,
-    amountIn,
-  ]);
+    const approveTx = await pushChainClient.universal.sendTransaction({
+      to: fromToken,
+      data: approveData,
+    });
 
-  const approveTx = await pushChainClient.universal.sendTransaction({
-    to: fromToken,
-    data: approveData,
-  });
+    toast.info("Approving token...");
+    await approveTx.wait();
 
-  toast.info("Approving token...");
-  await approveTx.wait();
+    // Step 2: Swap to WPC
+    toast.info("Swapping to WPC...");
+    await directSwap(fromToken, WPC_ADDRESS, amountIn, BigInt(0));
 
-  // Step 2: Swap to WPC
-  toast.info("Swapping to WPC...");
-  await directSwap(fromToken, WPC_ADDRESS, amountIn, BigInt(0));
+    // Step 3: Unwrap WPC to PC
+    await unwrapWPC(amountIn); // Note: This assumes 1:1, might need to query balance
+  };
 
-  // Step 3: Unwrap WPC to PC
-  await unwrapWPC(amountIn); // Note: This assumes 1:1, might need to query balance
-};
+  const multiHopSwapTokenToToken = async (
+    fromToken: string,
+    toToken: string,
+    amountIn: bigint
+  ) => {
+    // Step 1: Approve source token
+    const erc20Interface = new ethers.Interface(ERC20_ABI);
+    const approveData = erc20Interface.encodeFunctionData("approve", [
+      SWAP_ROUTER,
+      amountIn,
+    ]);
 
-const multiHopSwapTokenToToken = async (
-  fromToken: string,
-  toToken: string,
-  amountIn: bigint
-) => {
-  // Step 1: Approve source token
-  const erc20Interface = new ethers.Interface(ERC20_ABI);
-  const approveData = erc20Interface.encodeFunctionData("approve", [
-    SWAP_ROUTER,
-    amountIn,
-  ]);
+    const approveTx = await pushChainClient.universal.sendTransaction({
+      to: fromToken,
+      data: approveData,
+    });
 
-  const approveTx = await pushChainClient.universal.sendTransaction({
-    to: fromToken,
-    data: approveData,
-  });
+    toast.info("Approving token...");
+    await approveTx.wait();
 
-  toast.info("Approving token...");
-  await approveTx.wait();
+    // Step 2: Swap to WPC
+    toast.info("Swapping to WPC...");
+    await directSwap(fromToken, WPC_ADDRESS, amountIn, BigInt(0));
 
-  // Step 2: Swap to WPC
-  toast.info("Swapping to WPC...");
-  await directSwap(fromToken, WPC_ADDRESS, amountIn, BigInt(0));
+    // Step 3: Query WPC balance
+    const wpcContract = new ethers.Contract(WPC_ADDRESS, ERC20_ABI, provider);
+    const wpcBalance = await wpcContract.balanceOf(ueaAddress);
 
-  // Step 3: Query WPC balance
-  const wpcContract = new ethers.Contract(WPC_ADDRESS, ERC20_ABI, provider);
-  const wpcBalance = await wpcContract.balanceOf(ueaAddress);
-  
-  // Step 4: Approve WPC
-  const wpcInterface = new ethers.Interface(WPC_ABI);
-  const approveWPCData = wpcInterface.encodeFunctionData("approve", [
-    SWAP_ROUTER,
-    wpcBalance,
-  ]);
+    // Step 4: Approve WPC
+    const wpcInterface = new ethers.Interface(WPC_ABI);
+    const approveWPCData = wpcInterface.encodeFunctionData("approve", [
+      SWAP_ROUTER,
+      wpcBalance,
+    ]);
 
-  const approveWPCTx = await pushChainClient.universal.sendTransaction({
-    to: WPC_ADDRESS,
-    data: approveWPCData,
-  });
+    const approveWPCTx = await pushChainClient.universal.sendTransaction({
+      to: WPC_ADDRESS,
+      data: approveWPCData,
+    });
 
-  await approveWPCTx.wait();
+    await approveWPCTx.wait();
 
-  // Step 5: Swap WPC to target token
-  toast.info("Swapping WPC to target...");
-  await directSwap(WPC_ADDRESS, toToken, wpcBalance, BigInt(0));
-};
+    // Step 5: Swap WPC to target token
+    toast.info("Swapping WPC to target...");
+    await directSwap(WPC_ADDRESS, toToken, wpcBalance, BigInt(0));
+  };
 
   const wrapAndSwap = async (
     amountIn: bigint,
@@ -503,22 +520,36 @@ const multiHopSwapTokenToToken = async (
     }
 
     if (tokenIn !== WPC_ADDRESS && tokenIn !== "NATIVE") {
-    const erc20Interface = new ethers.Interface(ERC20_ABI);
-    
-    const allowanceData = erc20Interface.encodeFunctionData("allowance", [
-      ueaAddress,
-      SWAP_ROUTER,
-    ]);
+      const erc20Interface = new ethers.Interface(ERC20_ABI);
 
-    try {
-      const allowanceResult = await provider.call({
-        to: tokenIn,
-        data: allowanceData,
-      });
+      const allowanceData = erc20Interface.encodeFunctionData("allowance", [
+        ueaAddress,
+        SWAP_ROUTER,
+      ]);
 
-      const currentAllowance = BigInt(allowanceResult);
+      try {
+        const allowanceResult = await provider.call({
+          to: tokenIn,
+          data: allowanceData,
+        });
 
-      if (currentAllowance < amountIn) {
+        const currentAllowance = BigInt(allowanceResult);
+
+        if (currentAllowance < amountIn) {
+          const approveData = erc20Interface.encodeFunctionData("approve", [
+            SWAP_ROUTER,
+            amountIn,
+          ]);
+
+          const approveTx = await pushChainClient.universal.sendTransaction({
+            to: tokenIn,
+            data: approveData,
+          });
+
+          await approveTx.wait();
+        }
+      } catch (error) {
+        console.error("Approval check failed, approving anyway:", error);
         const approveData = erc20Interface.encodeFunctionData("approve", [
           SWAP_ROUTER,
           amountIn,
@@ -531,45 +562,33 @@ const multiHopSwapTokenToToken = async (
 
         await approveTx.wait();
       }
-    } catch (error) {
-      console.error("Approval check failed, approving anyway:", error);
-      const approveData = erc20Interface.encodeFunctionData("approve", [
-        SWAP_ROUTER,
-        amountIn,
-      ]);
-
-      const approveTx = await pushChainClient.universal.sendTransaction({
-        to: tokenIn,
-        data: approveData,
-      });
-
-      await approveTx.wait();
     }
-  }
 
     // Perform swap
-  const swapInterface = new ethers.Interface(SWAP_ROUTER_ABI);
-  const params = {
-    tokenIn,
-    tokenOut,
-    fee: feeTier, // ✅ Use 500
-    recipient: ueaAddress,
-    deadline: Math.floor(Date.now() / 1000) + 600,
-    amountIn,
-    amountOutMinimum: BigInt(0), // No slippage protection for now
-    sqrtPriceLimitX96: 0,
+    const swapInterface = new ethers.Interface(SWAP_ROUTER_ABI);
+    const params = {
+      tokenIn,
+      tokenOut,
+      fee: feeTier, // ✅ Use 500
+      recipient: ueaAddress,
+      deadline: Math.floor(Date.now() / 1000) + 600,
+      amountIn,
+      amountOutMinimum: BigInt(0), // No slippage protection for now
+      sqrtPriceLimitX96: 0,
+    };
+
+    const swapData = swapInterface.encodeFunctionData("exactInputSingle", [
+      params,
+    ]);
+
+    const swapTx = await pushChainClient.universal.sendTransaction({
+      to: SWAP_ROUTER,
+      data: swapData,
+      value: tokenIn === "NATIVE" ? amountIn : BigInt(0),
+    });
+
+    await swapTx.wait();
   };
-
-  const swapData = swapInterface.encodeFunctionData("exactInputSingle", [params]);
-
-  const swapTx = await pushChainClient.universal.sendTransaction({
-    to: SWAP_ROUTER,
-    data: swapData,
-    value: tokenIn === "NATIVE" ? amountIn : BigInt(0),
-  });
-
-  await swapTx.wait();
-};
 
   const handleFlipTokens = () => {
     const temp = fromToken;

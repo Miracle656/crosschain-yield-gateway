@@ -87,9 +87,35 @@ export const DepositModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
 
+  const validateMinimumDeposit = () => {
+  if (!amount || !strategyId) return true;
+
+  const token = TOKENS[selectedToken as keyof typeof TOKENS];
+  
+  // Known minimum deposits per strategy (adjust based on your contract)
+  const minimums: Record<number, string> = {
+    0: "0.1",     // Strategy 0: 0.1 token units
+    1: "0.001",   // Strategy 1: 0.001 token units  
+    2: "1",       // Strategy 2: 1 token unit
+  };
+
+  const minDeposit = minimums[strategyId] || "0.01";
+  
+  if (parseFloat(amount) < parseFloat(minDeposit)) {
+    toast.error(`Minimum deposit for this strategy is ${minDeposit} ${token.symbol}`);
+    return false;
+  }
+
+  return true;
+};
+
   const handleDeposit = async () => {
   if (!account || strategyId === null || !amount) {
     toast.error("Please fill in all fields");
+    return;
+  }
+
+  if (!validateMinimumDeposit()) {
     return;
   }
 
